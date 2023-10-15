@@ -1,20 +1,22 @@
 import React, { useEffect, useState } from "react";
 
-import { ContractFactory, JsonRpcSigner, ethers } from "ethers";
+import { Contract, ContractFactory, JsonRpcSigner, ethers } from "ethers";
 import { abi } from "../data/abi";
 import { bytecode } from "../data/bytecode";
 import { SEPOLIA_NETWORK } from "../data/network";
-
-interface EventDetails {
-  name?: string;
-  symbol?: string;
-  description?: string;
-}
+import { EventCreator } from "./EventCreator";
+import { EventDetails } from "../types";
+import { EventAttendee } from "./EventAttendee";
 
 export const Dapp = () => {
   const [signer, setSigner] = useState<JsonRpcSigner>();
   const [isUserConnected, setIsUserConnected] = useState<boolean>(false);
   const [nftDetails, setNftDetails] = useState<EventDetails>({});
+  const [contract, setContract] = useState<Contract>()
+
+  const urlParams = new URLSearchParams(window.location.search);
+  const contractAddressParam = urlParams.get("eventAddress");
+
   const connectWallet = async () => {
     try {
       let provider;
@@ -42,21 +44,16 @@ export const Dapp = () => {
   };
 
   const createNft = async () => {
-    const contractFactory = new ContractFactory(abi,bytecode,signer)
-    const contract = await contractFactory.deploy(nftDetails.name, nftDetails.symbol, nftDetails.description)
+    const contractFactory = new ContractFactory(abi, bytecode, signer);
+    const contract = await contractFactory.deploy(
+      nftDetails.name,
+      nftDetails.symbol,
+      nftDetails.description
+    );
     // The contract address comes out from contract.target
-    console.log('The contract address === ',await contract.getAddress())
+    console.log("The contract address === ", await contract.getAddress());
     console.log("The nft details ", nftDetails);
   };
-
-  useEffect(() => {
-    signer?.address && setIsUserConnected(true);
-    console.log("The user address is ", signer?.address);
-  }, [signer]);
-
-  const shouldDisable = (eventDetails: EventDetails) =>
-    !(eventDetails.name && eventDetails.name.length >= 4 && eventDetails.symbol && eventDetails.description);
-
   const setEventDetails = (eventDetails: EventDetails) => {
     setNftDetails(eventDetails);
     if (eventDetails.name && eventDetails.name.length >= 4) {
@@ -64,42 +61,31 @@ export const Dapp = () => {
     }
   };
 
+  useEffect(() => {
+    signer?.address && setIsUserConnected(true);
+    if (contractAddressParam && signer) {
+      setContract(new Contract(contractAddressParam, abi, signer))
+    }
+    console.log("The user address is ", signer?.address);
+  }, [contractAddressParam, signer]);
+
   return (
     <div>
-      {!isUserConnected ? (
+      {!isUserConnected || !signer ? (
         <button onClick={() => connectWallet()}>Connect wallet</button>
       ) : (
-        <section>
-          <div>
-            <label htmlFor="event-name">Event Name</label>
-            <br />
-            <input
-              type="text"
-              placeholder="Enter Event Name"
-              onChange={(e) =>
-                setEventDetails({ ...nftDetails, name: e.target.value })
-              }
+        <>
+          <h2>{signer?.address}</h2>
+          {contractAddressParam && contract ? (
+            <EventAttendee contract={contract} />
+          ) : (
+            <EventCreator
+              setEventDetails={setEventDetails}
+              nftDetails={nftDetails}
+              createNft={createNft}
             />
-          </div>
-          <div>
-            <label htmlFor="event-description">Description</label>
-            <br />
-            <textarea
-              id="event-description"
-              cols={30}
-              rows={30}
-              onChange={(e) =>
-                setEventDetails({ ...nftDetails, description: e.target.value })
-              }
-            ></textarea>
-          </div>
-          <button
-            onClick={() => createNft()}
-            disabled={shouldDisable(nftDetails)}
-          >
-            Mint
-          </button>
-        </section>
+          )}
+        </>
       )}
     </div>
   );

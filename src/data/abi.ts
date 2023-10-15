@@ -367,11 +367,6 @@ export const abi = [
   {
     inputs: [
       {
-        internalType: "address",
-        name: "recipient",
-        type: "address",
-      },
-      {
         internalType: "string",
         name: "tokenURI",
         type: "string",
